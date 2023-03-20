@@ -1,0 +1,18 @@
+{
+  "name": "s3tosftp",
+  "version": "0.0.0",
+  "description": "AWS Lambda utility to move files from S3 to SFTP",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "run": "node src/app.js"
+  },
+  "author": "Neil Clack",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.294.0",
+    "aws-sdk": "^2.1338.0",
+    "ssh2-sftp-client": "^9.0.4"
+  }
+}
