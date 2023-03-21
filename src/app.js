@@ -1,37 +1,79 @@
 import { S3 } from "@aws-sdk/client-s3";
+import * as dotenv from "dotenv";
+import SftpClient from "ssh2-sftp-client";
+import fs from "fs";
 
+dotenv.config();
 const REGION = "us-east-1";
+const localDir = "files/";
 const s3client = new S3({ region: REGION });
 const PARAMS = {
   Bucket: "dom-tftp-00183",
 };
+const config = {
+  host: process.env.SFTP_HOST,
+  username: process.env.SFTP_USER,
+  privateKey: fs.readFileSync(process.env.SFTP_KEY),
+};
 
-async function getObject(PARAMS) {
-  let file = s3client.getObject(PARAMS, (err, data) => {
-    if (err) {
-      console.log(err, err.stack);
-    } else {
-      data.Body.transformToString().then((result) => {
-        console.log("String: " + result);
+async function getObject(PARAMS, filename) {
+  await s3client.getObject(PARAMS, (err, data) => {
+    if (err === null) {
+      data.Body.transformToString().then((res) => {
+        if (!fs.existsSync(localDir)) {
+          fs.mkdirSync(localDir);
+        }
+        fs.writeFileSync(localDir + filename, res);
       });
-      return data;
+    } else {
+      console.log(err, err.stack);
     }
   });
+}
 
-  return file;
+function processFiles(dir) {
+  fs.readdir(dir, (err, files) => {
+    if (err === null) {
+      files.forEach((file) => {
+        console.log("processFiles file: " + file);
+        console.log("processFiles dir: " + dir);
+        sendFile(dir, file);
+      });
+    } else {
+      console.log(err, err.stack);
+    }
+  });
+}
+
+function sendFile(dir, file) {
+  const sftp = new SftpClient(config);
+  sftp
+    .connect(config)
+    .then(() => {
+      return sftp.cwd();
+    })
+    .then((d) => {
+      console.log("Sending file " + d + "/" + file);
+      return sftp.put(dir + file, d + "/" + file);
+    })
+    .catch((err) => {
+      console.log(err, err.stack);
+    })
+    .finally(() => {
+      sftp.end();
+    });
 }
 
 s3client.listObjects(PARAMS, (err, data) => {
   if (err === null) {
-    data.Contents.forEach(async (i) => {
+    data.Contents.forEach((i) => {
       if (i.Size != 0) {
         PARAMS.Key = i.Key;
-        console.log(`PARAMS = ${PARAMS.Key}`);
-        let file = await getObject(PARAMS);
         let [outbound, folder, year, month, day, filename] = i.Key.split("/");
         folder += "-";
         let newName = folder + year + month + day;
-        console.log(newName);
+        getObject(PARAMS, newName);
+        processFiles(localDir);
       }
     });
   } else {
