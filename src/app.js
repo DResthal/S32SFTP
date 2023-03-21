@@ -35,8 +35,6 @@ function processFiles(dir) {
   fs.readdir(dir, (err, files) => {
     if (err === null) {
       files.forEach((file) => {
-        console.log("processFiles file: " + file);
-        console.log("processFiles dir: " + dir);
         sendFile(dir, file);
       });
     } else {
@@ -53,7 +51,9 @@ function sendFile(dir, file) {
       return sftp.cwd();
     })
     .then((d) => {
-      console.log("Sending file " + d + "/" + file);
+      console.log(
+        "Sanity Check: Sending file " + d + "/" + file + " to server."
+      );
       return sftp.put(dir + file, d + "/" + file);
     })
     .catch((err) => {
