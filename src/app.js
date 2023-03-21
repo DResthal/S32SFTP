@@ -33,6 +33,8 @@ async function getObject(PARAMS, filename) {
 
 function processFiles(dir) {
   fs.readdir(dir, (err, files) => {
+    console.log(dir);
+    console.log(files);
     if (err === null) {
       files.forEach((file) => {
         sendFile(dir, file);
@@ -50,11 +52,11 @@ function sendFile(dir, file) {
     .then(() => {
       return sftp.cwd();
     })
-    .then((d) => {
+    .then((cwd) => {
       console.log(
-        "Sanity Check: Sending file " + d + "/" + file + " to server."
+        "Sanity Check: Sending file " + cwd + "/" + file + " to server."
       );
-      return sftp.put(dir + file, d + "/" + file);
+      return sftp.put(dir + file, cwd + "/" + file);
     })
     .catch((err) => {
       console.log(err, err.stack);
@@ -64,18 +66,18 @@ function sendFile(dir, file) {
     });
 }
 
-s3client.listObjects(PARAMS, (err, data) => {
+s3client.listObjects(PARAMS, async (err, data) => {
   if (err === null) {
-    data.Contents.forEach((i) => {
+    await data.Contents.forEach((i) => {
       if (i.Size != 0) {
         PARAMS.Key = i.Key;
         let [outbound, folder, year, month, day, filename] = i.Key.split("/");
         folder += "-";
         let newName = folder + year + month + day;
         getObject(PARAMS, newName);
-        processFiles(localDir);
       }
     });
+    processFiles(localDir);
   } else {
     console.log(err, err.stack);
   }
