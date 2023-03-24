@@ -1,0 +1,18 @@
+service: aws-lambda-test
+frameworkVersion: "3"
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+
+functions:
+  s32sftp:
+    handler: src/app.handler
+    description: Move files from an S3 bucket to an SFTP server.
+    environment:
+      SFTP_PRIV_KEY: ${ssm:sftp_private_key}
+    package:
+      patterns:
+        - src/**

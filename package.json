@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --trace-warnings src/app.js",
-    "run": "node src/app.js"
+    "dev": "node --trace-warnings src/app.js handler",
+    "run": "node src/app.js handler"
   },
   "author": "Neil Clack",
   "license": "ISC",
@@ -15,6 +15,7 @@
     "@aws-sdk/client-s3": "^3.294.0",
     "aws-sdk": "^2.1338.0",
     "dotenv": "^16.0.3",
-    "ssh2-sftp-client": "^9.0.4"
+    "ssh2-sftp-client": "^9.0.4",
+    "winston": "^3.8.2"
   }
 }
