@@ -15,7 +15,6 @@ const PARAMS = {
 const config = {
   host: process.env.SFTP_HOST,
   username: process.env.SFTP_USER,
-  privateKey: process.env.SFTP_PRIV_KEY,
 };
 
 const loggerFormat = format.combine(format.timestamp(), format.json());
@@ -28,12 +27,7 @@ const logger = winston.createLogger({
       timestamp: true,
       colorize: true,
     }),
-    new winston.transports.File({
-      filename: "s32sftp.log",
-      level: "info",
-      timestamp: true,
-      colorize: true,
-    }),
+    // new winston.transports.File({ filename: "s32sftp.log", level: "info", timestamp: true, colorize: true,}),
   ],
 });
 
@@ -94,7 +88,7 @@ function sendFile(dir, file) {
         return sftp.cwd();
       })
       .then((cwd) => {
-        logging.info({
+        logger.info({
           message: `Sanity Check: Sending file ${cwd + "/" + file} to server.`,
         });
         return sftp.put(dir + file, cwd + "/" + file);
@@ -115,46 +109,53 @@ function sendFile(dir, file) {
   }
 }
 
-console.log("running");
-logger.info({
-  level: "info",
-  message: "Obtaining list of S3 objects",
-});
-s3client.listObjects(PARAMS, async (err, data) => {
-  if (err === null) {
-    logger.info({
-      level: "info",
-      message: "Filtering listed objects to only those with data.",
-    });
-    await data.Contents.forEach((i) => {
-      if (i.Size != 0) {
-        logger.info({
-          message: `Found object: ${i.Key}`,
-        });
-        PARAMS.Key = i.Key;
-        logger.info({
-          message: `Cleaning Filename`,
-        });
-        let [outbound, folder, year, month, day, filename] = i.Key.split("/");
-        folder += "-";
-        let newName = folder + year + month + day;
-        logger.info({
-          message: `New Filename: ${newName}`,
-        });
-        getObject(PARAMS, newName);
-      }
-    });
-    logger.info({
-      message: "Processing Files",
-    });
-    processFiles(localDir);
-  } else {
-    logger.error({
-      level: "error",
-      message: err.stack,
-    });
+export function handler(ssh_key) {
+  if (typeof ssh_key === String) {
+    config.privateKey = fs.readFileSync(ssh_key);
   }
-});
-logger.info({
-  message: "Transfer Complete.",
-});
+
+  logger.info({
+    level: "info",
+    message: "Obtaining list of S3 objects",
+  });
+  s3client.listObjects(PARAMS, async (err, data) => {
+    if (err === null) {
+      logger.info({
+        level: "info",
+        message: "Filtering listed objects to only those with data.",
+      });
+      await data.Contents.forEach((i) => {
+        if (i.Size != 0) {
+          logger.info({
+            message: `Found object: ${i.Key}`,
+          });
+          PARAMS.Key = i.Key;
+          logger.info({
+            message: `Cleaning Filename`,
+          });
+          let [outbound, folder, year, month, day, filename] = i.Key.split("/");
+          folder += "-";
+          let newName = folder + year + month + day;
+          logger.info({
+            message: `New Filename: ${newName}`,
+          });
+          getObject(PARAMS, newName);
+        }
+      });
+      logger.info({
+        message: "Processing Files",
+      });
+      processFiles(localDir);
+    } else {
+      logger.error({
+        level: "error",
+        message: `${err} \n ${err.stack}`,
+      });
+    }
+    logger.info({
+      message: `Transfer complete.`,
+    });
+  });
+}
+
+export default handler;

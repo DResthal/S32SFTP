@@ -13,6 +13,10 @@ functions:
     description: Move files from an S3 bucket to an SFTP server.
     environment:
       SFTP_PRIV_KEY: ${ssm:sftp_private_key}
-    package:
-      patterns:
-        - src/**
+package:
+  patterns:
+    - "!src/**"
+    - "!.git/**"
+    - "!files/**"
+    - "!*.log"
+    - src/app.js
