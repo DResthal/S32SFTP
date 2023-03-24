@@ -6,6 +6,20 @@ provider:
   name: aws
   runtime: nodejs18.x
   region: us-east-1
+  iam:
+    role:
+      statements:
+        # Allow functions to list all buckets
+        - Effect: Allow
+          Action: "s3:ListBucket"
+          Resource: "*"
+        # Allow functions to read/write objects in a bucket
+        - Effect: Allow
+          Action:
+            - "s3:GetObject"
+            - "s3:PutObject"
+          Resource:
+            - "arn:aws:s3:::dom-tftp-00183/*"
 
 functions:
   s32sftp:

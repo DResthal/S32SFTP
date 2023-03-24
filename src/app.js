@@ -7,7 +7,7 @@ import { format } from "winston";
 
 dotenv.config();
 const REGION = "us-east-1";
-const localDir = "files/";
+const localDir = "/tmp/files";
 const s3client = new S3({ region: REGION });
 const PARAMS = {
   Bucket: "dom-tftp-00183",
@@ -32,6 +32,7 @@ const logger = winston.createLogger({
 });
 
 async function getObject(PARAMS, filename) {
+  process.chdir("/tmp");
   logger.info({
     message: `Donwloading file: ${filename}`,
   });
@@ -39,6 +40,9 @@ async function getObject(PARAMS, filename) {
     if (err === null) {
       data.Body.transformToString().then((res) => {
         if (!fs.existsSync(localDir)) {
+          fs.readdir("/tmp/files/", (err, files) => {
+            [console.log(`Quickly checking /tmp contents: ${files}`)];
+          });
           fs.mkdirSync(localDir);
         }
         fs.writeFileSync(localDir + filename, res);
@@ -49,7 +53,7 @@ async function getObject(PARAMS, filename) {
     } else {
       logger.error({
         level: "error",
-        message: err.stack,
+        message: `Unable to download file: ${err}\n${err.stack}`,
       });
     }
   });
@@ -62,56 +66,51 @@ function processFiles(dir) {
     });
     if (err === null) {
       files.forEach((file) => {
+        logger.info({
+          message: `Sending File ${file}`,
+        });
         sendFile(dir, file);
       });
     } else {
       logger.error({
         level: "error",
-        message: err.stack,
+        message: `Unable to process files: ${err}\n${err.stack}`,
       });
     }
   });
 }
 
 function sendFile(dir, file) {
-  logger.info({
-    message: `Attempting to create SFTP connection using the current configuration: ${config}`,
-  });
-  try {
-    const sftp = new SftpClient(config);
-    logger.info({
-      message: `Connection created.`,
-    });
-    sftp
-      .connect(config)
-      .then(() => {
-        return sftp.cwd();
-      })
-      .then((cwd) => {
-        logger.info({
-          message: `Sanity Check: Sending file ${cwd + "/" + file} to server.`,
-        });
-        return sftp.put(dir + file, cwd + "/" + file);
-      })
-      .catch((err) => {
-        logger.error({
-          level: "error",
-          message: err.stack,
-        });
-      })
-      .finally(() => {
-        sftp.end();
+  const sftp = new SftpClient(config);
+  sftp
+    .connect(config, () => {
+      logger.info({
+        message: `Connection created.`,
       });
-  } catch (err) {
-    logger.error({
-      message: `Unable to create SFTP connection: ${err}`,
+    })
+    .then(() => {
+      return sftp.cwd();
+    })
+    .then((cwd) => {
+      logger.info({
+        message: `Sanity Check: Sending file ${cwd + "/" + file} to server.`,
+      });
+      return sftp.put(dir + file, cwd + "/" + file);
+    })
+    .catch((err) => {
+      logger.error({
+        level: "error",
+        message: `Unable to send file. ${err}\n${err.stack}`,
+      });
+    })
+    .finally(() => {
+      sftp.end();
     });
-  }
 }
 
 export function handler(ssh_key) {
-  if (typeof ssh_key === String) {
-    config.privateKey = fs.readFileSync(ssh_key);
+  if (typeof ssh_key === "string") {
+    config.privateKey = fs.readFileSync(process.env.SFTP_KEY);
   }
 
   logger.info({
@@ -142,19 +141,16 @@ export function handler(ssh_key) {
           getObject(PARAMS, newName);
         }
       });
-      logger.info({
-        message: "Processing Files",
-      });
       processFiles(localDir);
+      logger.info({
+        message: `Transfer complete.`,
+      });
     } else {
       logger.error({
         level: "error",
         message: `${err} \n ${err.stack}`,
       });
     }
-    logger.info({
-      message: `Transfer complete.`,
-    });
   });
 }
 
