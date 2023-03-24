@@ -1,13 +1,12 @@
 import { S3 } from "@aws-sdk/client-s3";
 import * as dotenv from "dotenv";
 import SftpClient from "ssh2-sftp-client";
-import fs from "fs";
 import * as winston from "winston";
 import { format } from "winston";
+import { Readable } from "node:stream";
 
 dotenv.config();
 const REGION = "us-east-1";
-const localDir = "/tmp/files";
 const s3client = new S3({ region: REGION });
 const PARAMS = {
   Bucket: "dom-tftp-00183",
@@ -15,6 +14,7 @@ const PARAMS = {
 const config = {
   host: process.env.SFTP_HOST,
   username: process.env.SFTP_USER,
+  privateKey: process.env.SFTP_KEY,
 };
 
 const loggerFormat = format.combine(format.timestamp(), format.json());
@@ -32,23 +32,10 @@ const logger = winston.createLogger({
 });
 
 async function getObject(PARAMS, filename) {
-  process.chdir("/tmp");
-  logger.info({
-    message: `Donwloading file: ${filename}`,
-  });
   await s3client.getObject(PARAMS, (err, data) => {
     if (err === null) {
       data.Body.transformToString().then((res) => {
-        if (!fs.existsSync(localDir)) {
-          fs.readdir("/tmp/files/", (err, files) => {
-            [console.log(`Quickly checking /tmp contents: ${files}`)];
-          });
-          fs.mkdirSync(localDir);
-        }
-        fs.writeFileSync(localDir + filename, res);
-        logger.info({
-          message: `File ${filename} Downloaded.`,
-        });
+        sendFile(res, filename);
       });
     } else {
       logger.error({
@@ -59,28 +46,7 @@ async function getObject(PARAMS, filename) {
   });
 }
 
-function processFiles(dir) {
-  fs.readdir(dir, (err, files) => {
-    logger.info({
-      message: `processFiles() Current Variables: dir: ${dir}, files: ${files}`,
-    });
-    if (err === null) {
-      files.forEach((file) => {
-        logger.info({
-          message: `Sending File ${file}`,
-        });
-        sendFile(dir, file);
-      });
-    } else {
-      logger.error({
-        level: "error",
-        message: `Unable to process files: ${err}\n${err.stack}`,
-      });
-    }
-  });
-}
-
-function sendFile(dir, file) {
+function sendFile(data, filename) {
   const sftp = new SftpClient(config);
   sftp
     .connect(config, () => {
@@ -93,9 +59,11 @@ function sendFile(dir, file) {
     })
     .then((cwd) => {
       logger.info({
-        message: `Sanity Check: Sending file ${cwd + "/" + file} to server.`,
+        message: `Sanity Check: Sending file ${
+          cwd + "/" + filename
+        } to server.`,
       });
-      return sftp.put(dir + file, cwd + "/" + file);
+      return sftp.put(Readable.from(data), cwd + "/" + filename);
     })
     .catch((err) => {
       logger.error({
@@ -108,11 +76,7 @@ function sendFile(dir, file) {
     });
 }
 
-export function handler(ssh_key) {
-  if (typeof ssh_key === "string") {
-    config.privateKey = fs.readFileSync(process.env.SFTP_KEY);
-  }
-
+export function handler() {
   logger.info({
     level: "info",
     message: "Obtaining list of S3 objects",
@@ -141,7 +105,6 @@ export function handler(ssh_key) {
           getObject(PARAMS, newName);
         }
       });
-      processFiles(localDir);
       logger.info({
         message: `Transfer complete.`,
       });

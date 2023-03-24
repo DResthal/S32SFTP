@@ -26,7 +26,10 @@ functions:
     handler: src/app.handler
     description: Move files from an S3 bucket to an SFTP server.
     environment:
-      SFTP_PRIV_KEY: ${ssm:sftp_private_key}
+      SFTP_KEY: ${ssm:sftp_private_key}
+      SFTP_USER: ${ssm:SFTP_USER}
+      SFTP_HOST: ${ssm:SFTP_HOST}
+    timeout: 300
 package:
   patterns:
     - "!src/**"
