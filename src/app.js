@@ -98,7 +98,11 @@ export function handler() {
           });
           let [outbound, folder, year, month, day, filename] = i.Key.split("/");
           folder += "-";
-          let newName = folder + year + month + day;
+          let date = new Date();
+          let curDay = date.getDate();
+          let curMonth = date.getMonth() + 1;
+          let curYear = date.getFullYear();
+          let newName = folder + curYear + curMonth + curDay;
           logger.info({
             message: `New Filename: ${newName}`,
           });
