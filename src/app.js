@@ -6,10 +6,15 @@ import { format } from "winston";
 import { Readable } from "node:stream";
 
 dotenv.config();
+const date = new Date();
+const today = `01`;
+const thisMonth = date.getMonth();
+const thisYear = date.getFullYear();
 const REGION = "us-east-1";
 const s3client = new S3({ region: REGION });
 const PARAMS = {
   Bucket: "dom-tftp-00183",
+  Prefix: "outbound/",
 };
 const config = {
   host: process.env.SFTP_HOST,
@@ -32,6 +37,9 @@ const logger = winston.createLogger({
 });
 
 async function getObject(PARAMS, filename) {
+  logger.info({
+    message: `Attempting to read file: ${PARAMS.Key}`,
+  });
   await s3client.getObject(PARAMS, (err, data) => {
     if (err === null) {
       data.Body.transformToString().then((res) => {
@@ -40,7 +48,7 @@ async function getObject(PARAMS, filename) {
     } else {
       logger.error({
         level: "error",
-        message: `Unable to download file: ${err}\n${err.stack}`,
+        message: `Unable to read file: ${err}\n${err.stack}`,
       });
     }
   });
@@ -59,9 +67,7 @@ function sendFile(data, filename) {
     })
     .then((cwd) => {
       logger.info({
-        message: `Sanity Check: Sending file ${
-          cwd + "/" + filename
-        } to server.`,
+        message: `Streaming file to SFTP Server:  ${cwd + "/" + filename}`,
       });
       return sftp.put(Readable.from(data), cwd + "/" + filename);
     })
@@ -77,12 +83,6 @@ function sendFile(data, filename) {
 }
 
 function getToday(key) {
-  let date = new Date();
-  let today = `01`;
-  let thisMonth = date.getMonth();
-  let thisYear = date.getFullYear();
-
-  console.log(key);
   if (
     key.includes(`${thisYear}`) &&
     key.includes(`${thisMonth}`) &&
@@ -92,15 +92,16 @@ function getToday(key) {
   }
 }
 
+function cleanKey(key) {
+  const [outbound, folder, year, month, day, file] = key.split("/");
+  return `${folder}-${year}${month}${day}`;
+}
+
 export function handler() {
   logger.info({
     level: "info",
     message: "Obtaining list of S3 objects",
   });
-  let date = new Date();
-  let today = date.getDate();
-  let thisMonth = date.getMonth() + 1;
-  let thisYear = date.getFullYear();
 
   let currentKeys = [];
 
@@ -112,7 +113,13 @@ export function handler() {
         }
       }
     });
-    console.log(currentKeys);
+    logger.info({
+      message: `Current keys found: ${currentKeys}`,
+    });
+    currentKeys.forEach((key) => {
+      PARAMS.Key = key;
+      getObject(PARAMS, cleanKey(key));
+    });
   });
 }
 
