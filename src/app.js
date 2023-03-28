@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 
 dotenv.config();
 const date = new Date();
-const today = `01`;
+const today = date.getDate();
 const thisMonth = date.getMonth();
 const thisYear = date.getFullYear();
 const REGION = "us-east-1";
