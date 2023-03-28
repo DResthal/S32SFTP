@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --trace-warnings src/app.js handler",
+    "dev": "node --trace-warnings src/local.js",
     "run": "node src/app.js handler"
   },
   "author": "Neil Clack",

@@ -76,48 +76,43 @@ function sendFile(data, filename) {
     });
 }
 
+function getToday(key) {
+  let date = new Date();
+  let today = `01`;
+  let thisMonth = date.getMonth();
+  let thisYear = date.getFullYear();
+
+  console.log(key);
+  if (
+    key.includes(`${thisYear}`) &&
+    key.includes(`${thisMonth}`) &&
+    key.includes(`${today}`)
+  ) {
+    return true;
+  }
+}
+
 export function handler() {
   logger.info({
     level: "info",
     message: "Obtaining list of S3 objects",
   });
+  let date = new Date();
+  let today = date.getDate();
+  let thisMonth = date.getMonth() + 1;
+  let thisYear = date.getFullYear();
+
+  let currentKeys = [];
+
   s3client.listObjects(PARAMS, async (err, data) => {
-    if (err === null) {
-      logger.info({
-        level: "info",
-        message: "Filtering listed objects to only those with data.",
-      });
-      await data.Contents.forEach((i) => {
-        if (i.Size != 0) {
-          logger.info({
-            message: `Found object: ${i.Key}`,
-          });
-          PARAMS.Key = i.Key;
-          logger.info({
-            message: `Cleaning Filename`,
-          });
-          let [outbound, folder, year, month, day, filename] = i.Key.split("/");
-          folder += "-";
-          let date = new Date();
-          let curDay = date.getDate();
-          let curMonth = date.getMonth() + 1;
-          let curYear = date.getFullYear();
-          let newName = folder + curYear + curMonth + curDay;
-          logger.info({
-            message: `New Filename: ${newName}`,
-          });
-          getObject(PARAMS, newName);
+    data.Contents.forEach((i) => {
+      if (i.Size > 0) {
+        if (getToday(i.Key) === true) {
+          currentKeys.push(i.Key);
         }
-      });
-      logger.info({
-        message: `Transfer complete.`,
-      });
-    } else {
-      logger.error({
-        level: "error",
-        message: `${err} \n ${err.stack}`,
-      });
-    }
+      }
+    });
+    console.log(currentKeys);
   });
 }
 
