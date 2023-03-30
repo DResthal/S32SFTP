@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 
 dotenv.config();
 const date = new Date();
-const today = date.getDate();
+const today = "01";
 const thisMonth = date.getMonth();
 const thisYear = date.getFullYear();
 const REGION = "us-east-1";
@@ -67,9 +67,11 @@ function sendFile(data, filename) {
     })
     .then((cwd) => {
       logger.info({
-        message: `Streaming file to SFTP Server:  ${cwd + "/" + filename}`,
+        message: `Streaming file to SFTP Server:  ${
+          cwd + "/ToAssurantEFT/" + filename
+        }`,
       });
-      return sftp.put(Readable.from(data), cwd + "/" + filename);
+      return sftp.put(Readable.from(data), cwd + "/ToAssurantEFT/" + filename);
     })
     .catch((err) => {
       logger.error({
