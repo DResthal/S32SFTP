@@ -99,7 +99,7 @@ function cleanKey(key) {
   return `${folder}-${year}${month}${day}`;
 }
 
-export function handler() {
+function fromS3() {
   logger.info({
     level: "info",
     message: "Obtaining list of S3 objects",
@@ -123,6 +123,10 @@ export function handler() {
       getObject(PARAMS, cleanKey(key));
     });
   });
+}
+
+export function handler() {
+  fromS3();
 }
 
 export default handler;
