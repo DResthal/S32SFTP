@@ -1,17 +1,19 @@
 import { S3 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import * as dotenv from "dotenv";
 import SftpClient from "ssh2-sftp-client";
 import * as winston from "winston";
 import { format } from "winston";
-import { Readable } from "node:stream";
+import { Readable, Writable } from "node:stream";
+import stream from "node:stream";
 
 dotenv.config();
 const date = new Date();
-const today = "01";
-const thisMonth = date.getMonth();
-const thisYear = date.getFullYear();
+let today = date.getDate();
+let thisMonth = date.getMonth() + 1;
+let thisYear = date.getFullYear();
 const REGION = "us-east-1";
-const s3client = new S3({ region: REGION });
+const s3 = new S3({ region: REGION, logger: console });
 const PARAMS = {
   Bucket: "dom-tftp-00183",
   Prefix: "outbound/",
@@ -40,7 +42,7 @@ async function getObject(PARAMS, filename) {
   logger.info({
     message: `Attempting to read file: ${PARAMS.Key}`,
   });
-  await s3client.getObject(PARAMS, (err, data) => {
+  await s3.getObject(PARAMS, (err, data) => {
     if (err === null) {
       data.Body.transformToString().then((res) => {
         sendFile(res, filename);
@@ -85,12 +87,17 @@ function sendFile(data, filename) {
 }
 
 function getToday(key) {
-  if (
-    key.includes(`${thisYear}`) &&
-    key.includes(`${thisMonth}`) &&
-    key.includes(`${today}`)
-  ) {
+  if (`${today}`.length < 2) {
+    today = `0${today}`;
+  }
+  if (`${thisMonth}`.length < 2) {
+    thisMonth = `0${thisMonth}`;
+  }
+  console.log(`Date Check: ${thisYear}${thisMonth}${today}`);
+  if (key.includes(`${thisYear}${thisMonth}${today}`)) {
     return true;
+  } else {
+    return false;
   }
 }
 
@@ -107,7 +114,7 @@ function fromS3() {
 
   let currentKeys = [];
 
-  s3client.listObjects(PARAMS, async (err, data) => {
+  s3.listObjects(PARAMS, async (err, data) => {
     data.Contents.forEach((i) => {
       if (i.Size > 0) {
         if (getToday(i.Key) === true) {
@@ -125,8 +132,73 @@ function fromS3() {
   });
 }
 
+async function storeS3(stream, key) {
+  console.log(typeof key[0]);
+  console.log(typeof stream);
+  PARAMS.Key = key[0];
+  PARAMS.Body = stream;
+  PARAMS.Prefix = "inbound/";
+  const upload = new Upload({
+    client: s3,
+    params: PARAMS,
+  });
+  upload.on("httpUploadProgress", (progress) => {
+    console.log(progress);
+  });
+  await upload.done();
+  return true;
+}
+
+function toS3() {
+  const sftp = new SftpClient(config);
+
+  sftp
+    .connect(config)
+    .then(() => {
+      return sftp.cwd();
+    })
+    .then(async (cwd) => {
+      return [await sftp.list(`${cwd}/FromAssurantEFT/`), cwd];
+    })
+    .then((data) => {
+      let todaysFile = data[0].map((obj) => obj.name).filter(getToday);
+      let filepath = `${data[1]}/FromAssurantEFT/${todaysFile}`;
+      logger.info({
+        message: `Today's File: ${todaysFile}`,
+      });
+      logger.info({
+        message: `Full Filepath during get operation: ${filepath}`,
+      });
+      try {
+        return [sftp.createReadStream(filepath), todaysFile];
+      } catch (err) {
+        console.log("Error creating read stream");
+      }
+    })
+    .then(async (args) => {
+      try {
+        await storeS3(args[0], args[1]);
+      } catch (err) {
+        logger.error({
+          message: `Unable to run 'storeS3' function. ${err} ${err.stack}`,
+        });
+      }
+      return true;
+    })
+    .catch((err) => {
+      logger.error({
+        level: "error",
+        message: `Unable to get file. ${err}\n${err.stack}`,
+      });
+    })
+    .finally(() => {
+      sftp.end();
+    });
+}
+
 export function handler() {
-  fromS3();
+  // fromS3();
+  toS3();
 }
 
 export default handler;
