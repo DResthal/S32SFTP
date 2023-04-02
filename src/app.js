@@ -45,7 +45,10 @@ async function getObject(PARAMS, filename) {
   await s3.getObject(PARAMS, (err, data) => {
     if (err === null) {
       data.Body.transformToString().then((res) => {
-        sendFile(res, filename);
+        logger.info({
+          message: `File read. Sending file.`,
+        });
+        fromS3(res, filename);
       });
     } else {
       logger.error({
@@ -56,7 +59,7 @@ async function getObject(PARAMS, filename) {
   });
 }
 
-function sendFile(data, filename) {
+function fromS3(data, filename) {
   const sftp = new SftpClient(config);
   sftp
     .connect(config, () => {
@@ -78,11 +81,12 @@ function sendFile(data, filename) {
     .catch((err) => {
       logger.error({
         level: "error",
-        message: `Unable to send file. ${err}\n${err.stack}`,
+        message: `Unable to run fromS3. ${err}\n${err.stack}`,
       });
     })
     .finally(() => {
       sftp.end();
+      logger.info({ message: `SFTP connection closed.` });
     });
 }
 
@@ -93,8 +97,8 @@ function getToday(key) {
   if (`${thisMonth}`.length < 2) {
     thisMonth = `0${thisMonth}`;
   }
-  console.log(`Date Check: ${thisYear}${thisMonth}${today}`);
   if (key.includes(`${thisYear}${thisMonth}${today}`)) {
+    logger.info({ message: `Found file for today: ${key}` });
     return true;
   } else {
     return false;
@@ -108,13 +112,13 @@ function cleanKey(key) {
 
 function fromS3() {
   logger.info({
-    level: "info",
-    message: "Obtaining list of S3 objects",
+    message: `Obtaining list of S3 objects`,
   });
 
   let currentKeys = [];
 
   s3.listObjects(PARAMS, async (err, data) => {
+    // Necessary due to listObjects returning an array of objects and not strings.
     data.Contents.forEach((i) => {
       if (i.Size > 0) {
         if (getToday(i.Key) === true) {
@@ -133,8 +137,6 @@ function fromS3() {
 }
 
 async function storeS3(stream, key) {
-  console.log(typeof key[0]);
-  console.log(typeof stream);
   PARAMS.Key = key[0];
   PARAMS.Body = stream;
   PARAMS.Prefix = "inbound/";
@@ -143,9 +145,18 @@ async function storeS3(stream, key) {
     params: PARAMS,
   });
   upload.on("httpUploadProgress", (progress) => {
-    console.log(progress);
+    logger.info({
+      message: progress,
+    });
   });
-  await upload.done();
+
+  try {
+    await upload.done();
+    logger.info({ message: `Upload complete.` });
+  } catch (err) {
+    logger.error({ message: `${err} ${err.stack}` });
+    throw err;
+  }
   return true;
 }
 
@@ -153,42 +164,53 @@ function toS3() {
   const sftp = new SftpClient(config);
 
   sftp
-    .connect(config)
+    .connect(config, () => {
+      logger.info({
+        message: `SFTP connection created`,
+      });
+    })
     .then(() => {
       return sftp.cwd();
     })
     .then(async (cwd) => {
+      logger.info({
+        message: `Listing files...`,
+      });
       return [await sftp.list(`${cwd}/FromAssurantEFT/`), cwd];
     })
     .then((data) => {
       let todaysFile = data[0].map((obj) => obj.name).filter(getToday);
       let filepath = `${data[1]}/FromAssurantEFT/${todaysFile}`;
       logger.info({
-        message: `Today's File: ${todaysFile}`,
+        message: `Found file: ${todaysFile}`,
       });
       logger.info({
-        message: `Full Filepath during get operation: ${filepath}`,
+        message: `Full Filepath: ${filepath}`,
       });
       try {
         return [sftp.createReadStream(filepath), todaysFile];
       } catch (err) {
-        console.log("Error creating read stream");
+        logger.error({
+          message: `${err} ${err.stack}`,
+        });
       }
     })
     .then(async (args) => {
       try {
+        logger.info({
+          message: `Sending file data to storeS3 function`,
+        });
         await storeS3(args[0], args[1]);
       } catch (err) {
         logger.error({
-          message: `Unable to run 'storeS3' function. ${err} ${err.stack}`,
+          message: `Unable to begin storeS3 function. ${err} ${err.stack}`,
         });
       }
       return true;
     })
     .catch((err) => {
       logger.error({
-        level: "error",
-        message: `Unable to get file. ${err}\n${err.stack}`,
+        message: `Unable to run toS3. ${err}\n${err.stack}`,
       });
     })
     .finally(() => {
