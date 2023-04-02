@@ -219,7 +219,7 @@ function toS3() {
 }
 
 export function handler() {
-  // fromS3();
+  fromS3();
   toS3();
 }
 
