@@ -48,7 +48,7 @@ async function getObject(PARAMS, filename) {
         logger.info({
           message: `File read. Sending file.`,
         });
-        fromS3(res, filename);
+        sendFile(res, filename);
       });
     } else {
       logger.error({
@@ -59,7 +59,7 @@ async function getObject(PARAMS, filename) {
   });
 }
 
-function fromS3(data, filename) {
+function sendFile(data, filename) {
   const sftp = new SftpClient(config);
   sftp
     .connect(config, () => {
@@ -112,7 +112,7 @@ function cleanKey(key) {
 
 function fromS3() {
   logger.info({
-    message: `Obtaining list of S3 objects`,
+    message: `Obtaining list of S3 files`,
   });
 
   let currentKeys = [];
