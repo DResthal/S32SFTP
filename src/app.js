@@ -9,7 +9,7 @@ import stream from "node:stream";
 
 dotenv.config();
 const date = new Date();
-let today = date.getDate();
+let today = date.getDate() - 1;
 let thisMonth = date.getMonth() + 1;
 let thisYear = date.getFullYear();
 const REGION = "us-east-1";
