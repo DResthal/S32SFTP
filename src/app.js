@@ -97,12 +97,8 @@ function getToday(key) {
   if (`${thisMonth}`.length < 2) {
     thisMonth = `0${thisMonth}`;
   }
-  if (key.includes(`${thisYear}${thisMonth}${today}`)) {
-    logger.info({ message: `Found file for today: ${key}` });
-    return true;
-  } else {
-    return false;
-  }
+  let re = new RegExp(`.*${thisYear}.*${thisMonth}.*${today}.*`);
+  return re.test(key);
 }
 
 function cleanKey(key) {
