@@ -148,7 +148,7 @@ async function storeS3(stream, key) {
 
   try {
     await upload.done();
-    logger.info({ message: `Upload complete.` });
+    logger.info({ message: `Upload of ${key[0]} complete.` });
   } catch (err) {
     logger.error({ message: `${err} ${err.stack}` });
     throw err;
