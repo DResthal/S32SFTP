@@ -199,7 +199,7 @@ function toS3() {
         await storeS3(args[0], args[1]);
       } catch (err) {
         logger.error({
-          message: `Unable to begin storeS3 function. ${err} ${err.stack}`,
+          message: `Unable to begin storeS3 function.\nKey: ${args[1]}\n ${err} ${err.stack}`,
         });
       }
       return true;
