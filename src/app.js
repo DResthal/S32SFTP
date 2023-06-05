@@ -175,6 +175,9 @@ function toS3() {
       return [await sftp.list(`${cwd}/FromAssurantEFTARCHIVE/`), cwd];
     })
     .then((data) => {
+      logger.into({
+        message: `Data passed to filter: ${data}`
+      })
       let todaysFile = data[0].map((obj) => obj.name).filter(getToday);
       let filepath = `${data[1]}/FromAssurantEFTARCHIVE/${todaysFile}`;
       logger.info({
