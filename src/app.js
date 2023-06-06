@@ -133,9 +133,8 @@ function fromS3() {
 }
 
 async function storeS3(stream, key) {
-  PARAMS.Key = key[0];
+  PARAMS.Key = `inbound/${key[0]}`;
   PARAMS.Body = stream;
-  PARAMS.Prefix = "inbound/";
   const upload = new Upload({
     client: s3,
     params: PARAMS,
@@ -172,14 +171,14 @@ function toS3() {
       logger.info({
         message: `Listing files...`,
       });
-      return [await sftp.list(`${cwd}/FromAssurant/EFTARCHIVE/`), cwd];
+      return [await sftp.list(`${cwd}/FromAssurantEFT/EFTARCHIVE/`), cwd];
     })
     .then((data) => {
       logger.into({
         message: `Data passed to filter: ${data}`
       })
       let todaysFile = data[0].map((obj) => obj.name).filter(getToday);
-      let filepath = `${data[1]}/FromAssurant/EFTARCHIVE/${todaysFile}`;
+      let filepath = `${data[1]}/FromAssurantEFT/EFTARCHIVE/${todaysFile}`;
       logger.info({
         message: `Found file: ${todaysFile}`,
       });
